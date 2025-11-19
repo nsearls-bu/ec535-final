@@ -1,5 +1,6 @@
 BirdNET-Analyzer
 .DS_Store
+*.tflite
 # Python
 __pycache__/
 *.py[cod]
