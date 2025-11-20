@@ -73,3 +73,5 @@ install_manifest.txt
 *.tmp
 .vscode/
 .idea/
+tensorflow
+LiteRT
