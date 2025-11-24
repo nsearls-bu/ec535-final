@@ -64,7 +64,7 @@ tensorflow-build-arm
 tensorflow
 rootfs
 m
-an
+ad
 *.img
 bootfs
 busybox-1.31.1
