@@ -1,0 +1,62 @@
+cat <<'EOF'
+ _           _ _     _                 _
+| |__  _   _(_) | __| |_ __ ___   ___ | |_
+| '_ \| | | | | |/ _` | '__/ _ \ / _ \| __|
+| |_) | |_| | | | (_| | | | (_) | (_) | |_
+|_.__/ \__,_|_|_|\__,_|_|  \___/ \___/ \__|
+
+       Making embedded Linux easy!
+
+Some tips:
+* PATH now contains the SDK utilities
+* Standard autotools variables (CC, LD, CFLAGS) are exported
+* Kernel compilation variables (ARCH, CROSS_COMPILE, KERNELDIR) are exported
+* To configure do "./configure $CONFIGURE_FLAGS" or use
+  the "configure" alias
+* To build CMake-based projects, use the "cmake" alias
+
+EOF
+SDK_PATH=$(dirname $(realpath "${BASH_SOURCE[0]}"))
+export "AR=$SDK_PATH/bin/arm-linux-ar"
+export "AS=$SDK_PATH/bin/arm-linux-as"
+export "LD=$SDK_PATH/bin/arm-linux-ld"
+export "NM=$SDK_PATH/bin/arm-linux-nm"
+export "CC=$SDK_PATH/bin/arm-linux-gcc"
+export "GCC=$SDK_PATH/bin/arm-linux-gcc"
+export "CPP=$SDK_PATH/bin/arm-linux-cpp"
+export "CXX=$SDK_PATH/bin/arm-linux-g++"
+export "FC=$SDK_PATH/bin/arm-linux-gfortran"
+export "F77=$SDK_PATH/bin/arm-linux-gfortran"
+export "RANLIB=$SDK_PATH/bin/arm-linux-ranlib"
+export "READELF=$SDK_PATH/bin/arm-linux-readelf"
+export "STRIP=$SDK_PATH/bin/arm-linux-strip"
+export "OBJCOPY=$SDK_PATH/bin/arm-linux-objcopy"
+export "OBJDUMP=$SDK_PATH/bin/arm-linux-objdump"
+export "AR_FOR_BUILD=/usr/bin/ar"
+export "AS_FOR_BUILD=/usr/bin/as"
+export "CC_FOR_BUILD=/usr/bin/gcc"
+export "GCC_FOR_BUILD=/usr/bin/gcc"
+export "CXX_FOR_BUILD=/usr/bin/g++"
+export "LD_FOR_BUILD=/usr/bin/ld"
+export "CPPFLAGS_FOR_BUILD=-I$SDK_PATH/include"
+export "CFLAGS_FOR_BUILD=-O2 -I$SDK_PATH/include"
+export "CXXFLAGS_FOR_BUILD=-O2 -I$SDK_PATH/include"
+export "LDFLAGS_FOR_BUILD=-L$SDK_PATH/lib -Wl,-rpath,$SDK_PATH/lib"
+export "FCFLAGS_FOR_BUILD="
+export "DEFAULT_ASSEMBLER=$SDK_PATH/bin/arm-linux-as"
+export "DEFAULT_LINKER=$SDK_PATH/bin/arm-linux-ld"
+export "CPPFLAGS=-D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64"
+export "CFLAGS=-D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64  -Os  "
+export "CXXFLAGS=-D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64  -Os  "
+export "LDFLAGS="
+export "FCFLAGS= -Os "
+export "FFLAGS= -Os "
+export "PKG_CONFIG=$SDK_PATH/bin/pkg-config"
+export "STAGING_DIR=$SDK_PATH/arm-buildroot-linux-gnueabihf/sysroot"
+export "INTLTOOL_PERL=/usr/bin/perl"
+export "ARCH=arm"
+export "CROSS_COMPILE=$SDK_PATH/bin/arm-linux-"
+export "CONFIGURE_FLAGS=--target=arm-buildroot-linux-gnueabihf --host=arm-buildroot-linux-gnueabihf --build=x86_64-pc-linux-gnu --prefix=/usr --exec-prefix=/usr --sysconfdir=/etc --localstatedir=/var --program-prefix="
+alias configure="./configure ${CONFIGURE_FLAGS}"
+alias cmake="cmake -DCMAKE_TOOLCHAIN_FILE=$SDK_PATH/share/buildroot/toolchainfile.cmake -DCMAKE_INSTALL_PREFIX=/usr"
+export "PATH=$SDK_PATH/bin:$SDK_PATH/sbin:$PATH"

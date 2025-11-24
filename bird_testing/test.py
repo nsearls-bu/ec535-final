@@ -53,5 +53,5 @@ for window in range(len(data_tensor) // 144000):
     scores = predict(data_tensor[start:start + 144000])
     print("Top results:")
     for label, score in top_predictions(scores, n=5):
-        # print(f"{label}: {score:.4f}")
+        print(f"{label}: {score:.4f}")
         pass
