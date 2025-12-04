@@ -94,5 +94,7 @@ LiteRT
 !lib_arm
 !bird_testing/lib_arm/*.so
 !bird_testing/lib_arm/*.a
+!bird_testing/lib_arm/tf_deps/*.so
+
 !lib_arm/*.a
 bird_inference_arm
