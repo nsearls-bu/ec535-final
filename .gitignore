@@ -92,3 +92,5 @@ install_manifest.txt
 .idea/
 tensorflow
 LiteRT
+bird_inference_x86
+profile.txt
