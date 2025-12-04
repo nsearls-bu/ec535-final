@@ -68,7 +68,6 @@ ad
 *.img
 bootfs
 busybox-1.31.1
-bird_testing/lib_arm
 *.tar
 LiteRT
 libsndfile
@@ -94,3 +93,9 @@ tensorflow
 LiteRT
 bird_inference_x86
 profile.txt
+!lib_arm
+!bird_testing/lib_arm/*.so
+!bird_testing/lib_arm/*.a
+!bird_testing/lib_arm/tf_deps/*.so
+
+bird_inference_arm

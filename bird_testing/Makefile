@@ -2,9 +2,12 @@ EXT_TOOLCHAIN := /home/ned/Documents/ec535-final/ad/eng/courses/ec/ec535/bbb/bui
 SYSROOT      := /home/ned/Documents/ec535-final/ad/eng/courses/ec/ec535/bbb/buildroot-2021.02.1/output/host/arm-buildroot-linux-gnueabihf/sysroot
 
 CC_ARM       := $(EXT_TOOLCHAIN)/bin/arm-linux-g++
-CC_X86       := gcc
+CC_X86       := g++
 
-CFLAGS_X86 = -I../LiteRT
+QT5_CFLAGS  := $(shell pkg-config --cflags Qt5Widgets)
+QT5_LIBS    := $(shell pkg-config --libs Qt5Widgets)
+
+CFLAGS_X86 = -I../tensorflow -pg
 LDFLAGS_X86 = -Llib_x86 -ltensorflowlite_c -lsndfile -lsamplerate
 
 CFLAGS_ARM = \
@@ -32,10 +35,14 @@ LDFLAGS_ARM = \
     -lstdc++
 
 x86:
-	$(CC_X86) $(CFLAGS_X86) bird_inference.c -o bird_inference_x86 $(LDFLAGS_X86)
+	$(CC_X86) $(CFLAGS_X86) bird_inference.cpp -o bird_inference_x86 $(LDFLAGS_X86)
 
+spectrogram_x86: main.moc
+	$(CC_X86) -std=c++17 -fPIC spectrogram.cpp -o spectrogram_x86 $(QT5_CFLAGS) $(QT5_LIBS)
+main.moc: spectrogram.cpp
+	moc spectrogram.cpp -o main.moc
 arm:
-	$(CC_ARM) $(CFLAGS_ARM) bird_inference.c -o bird_inference_arm $(LDFLAGS_ARM)
+	$(CC_ARM) $(CFLAGS_ARM) bird_inference.cpp -o bird_inference_arm $(LDFLAGS_ARM)
 
 clean:
 	rm -f bird_inference_x86 bird_inference_arm
