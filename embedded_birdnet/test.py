@@ -2,8 +2,8 @@ import numpy as np
 import tensorflow as tf
 import librosa
 
-MODEL_PATH = "BirdNET_GLOBAL_6K_V2.4_Model_INT8.tflite"
-LABELS_PATH = "BirdNET_GLOBAL_6K_V2.4_Labels.txt"
+MODEL_PATH = "BirdNET_1K_V1.4_Model_FP32.tflite"
+LABELS_PATH = "BirdNET_1K_V1.4_Labels.txt"
 
 interpreter = tf.lite.Interpreter(model_path=MODEL_PATH)
 interpreter.allocate_tensors()
@@ -52,3 +52,4 @@ for window in range(len(data_tensor) // 144000):
     for label, score in top_predictions(scores, n=5):
         print(f"{label}: {score:.4f}")
         pass
+    break

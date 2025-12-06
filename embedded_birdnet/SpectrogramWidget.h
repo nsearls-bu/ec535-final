@@ -21,6 +21,7 @@ private slots:
 
 private:
     bool loadAudioData(const QString &filename);
+    int logarithmicFreq(int y);
     BirdIdentificationEngine engine;
     QTimer *m_timer;
     QVector<short> m_pcmData;

@@ -14,6 +14,8 @@ BirdIdentificationEngine::BirdIdentificationEngine(const char *modelPath)
     model = TfLiteModelCreateFromFile(modelPath);
     options = TfLiteInterpreterOptionsCreate();
     interpreter = TfLiteInterpreterCreate(model, options);
+    int dims[2] = {1, WINDOW_SIZE};
+    TfLiteInterpreterResizeInputTensor(interpreter, 0, dims, 2);
     TfLiteInterpreterAllocateTensors(interpreter);
     printf("Loaded model %s\n", modelPath);
 
@@ -23,15 +25,19 @@ BirdIdentificationEngine::BirdIdentificationEngine(const char *modelPath)
 
 BirdIdentificationEngine::~BirdIdentificationEngine()
 {
-    if (interpreter) TfLiteInterpreterDelete(interpreter);
-    if (options) TfLiteInterpreterOptionsDelete(options);
-    if (model) TfLiteModelDelete(model);
+    if (interpreter)
+        TfLiteInterpreterDelete(interpreter);
+    if (options)
+        TfLiteInterpreterOptionsDelete(options);
+    if (model)
+        TfLiteModelDelete(model);
 }
 
-int BirdIdentificationEngine::predict(float *window, float *out_scores) {
+int BirdIdentificationEngine::predict(float *window, float *out_scores)
+{
 
     TfLiteTensor *input = TfLiteInterpreterGetInputTensor(interpreter, 0);
-
+    int dims = TfLiteTensorNumDims(input);
     if (TfLiteTensorCopyFromBuffer(input, window, WINDOW_SIZE * sizeof(float)) != kTfLiteOk)
         return -1;
 
@@ -39,13 +45,12 @@ int BirdIdentificationEngine::predict(float *window, float *out_scores) {
         return -2;
 
     const TfLiteTensor *output = TfLiteInterpreterGetOutputTensor(interpreter, 0);
+
     if (TfLiteTensorCopyToBuffer(output, out_scores, MODEL_OUTPUT_SIZE * sizeof(float)) != kTfLiteOk)
         return -3;
 
     return 0;
-
 }
-
 
 int BirdIdentificationEngine::cmp_scores(const void *a, const void *b)
 {
@@ -65,7 +70,7 @@ void BirdIdentificationEngine::top_N_scores(float *scores, int N, ScoreLabelPair
 
 int BirdIdentificationEngine::count_labels()
 {
-    FILE *fp = fopen("BirdNET_GLOBAL_6K_V2.4_Labels.txt", "r");
+    FILE *fp = fopen(LABELS_PATH, "r");
     if (!fp)
         return -1;
 
@@ -80,16 +85,18 @@ int BirdIdentificationEngine::count_labels()
 
 void BirdIdentificationEngine::load_labels()
 {
-    FILE *fp = fopen("BirdNET_GLOBAL_6K_V2.4_Labels.txt", "r");
-    if (!fp) {
+    FILE *fp = fopen(LABELS_PATH, "r");
+    if (!fp)
+    {
         return;
     }
 
     int i = 0;
     char line[MAX_LINE_LENGTH];
 
-    while (i < MODEL_OUTPUT_SIZE && fgets(line, MAX_LINE_LENGTH, fp)) {
-        line[strcspn(line, "\n")] = '\0';    // strip newline
+    while (i < MODEL_OUTPUT_SIZE && fgets(line, MAX_LINE_LENGTH, fp))
+    {
+        line[strcspn(line, "\n")] = '\0'; // strip newline
         strncpy(labels[i], line, MAX_LINE_LENGTH - 1);
         labels[i][MAX_LINE_LENGTH - 1] = '\0';
         i++;
@@ -97,7 +104,6 @@ void BirdIdentificationEngine::load_labels()
 
     fclose(fp);
 }
-
 
 float *BirdIdentificationEngine::get_window(float *audio, int total_samples, int *pos)
 {
@@ -109,17 +115,17 @@ float *BirdIdentificationEngine::get_window(float *audio, int total_samples, int
     return win;
 }
 
-
 void BirdIdentificationEngine::get_top_results(const float scores[MODEL_OUTPUT_SIZE],
-                                        Prediction out[5])
+                                               Prediction out[5])
 {
-    
+
     ScoreLabelPair ranked[MODEL_OUTPUT_SIZE];
 
-    top_N_scores((float*)scores, 5, ranked);
+    top_N_scores((float *)scores, 5, ranked);
 
-    for (int i = 0; i < 5; i++) {
-        const char* label = labels[(ranked[i].index)];
+    for (int i = 0; i < 5; i++)
+    {
+        const char *label = labels[(ranked[i].index)];
 
         strncpy(out[i].label, label, MAX_LINE_LENGTH - 1);
         out[i].label[MAX_LINE_LENGTH - 1] = '\0';

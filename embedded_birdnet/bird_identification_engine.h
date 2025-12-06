@@ -4,10 +4,10 @@
 #include <string>
 #include "tensorflow/lite/c/c_api.h"
 
-#define MODEL_OUTPUT_SIZE 6522
+#define MODEL_OUTPUT_SIZE 1133
 #define WINDOW_SIZE 144000
 #define MAX_LINE_LENGTH 128
-
+#define LABELS_PATH "BirdNET_1K_V1.4_Labels.txt"
 typedef struct
 {
     int index;

@@ -23,7 +23,7 @@ const int SCREEN_WIDTH = 480;
 const int SCREEN_HEIGHT = 256;
 const int FFT_SIZE = 512;
 const int HEIGHT = FFT_SIZE / 2;
-const int REFRESH_RATE_MS = 33;
+const int REFRESH_RATE_MS = 10;
 
 const double NOISE_FLOOR_DB = -80.0;
 const double SIGNAL_RANGE_DB = 50.0;
@@ -66,7 +66,7 @@ static QRgb getMerlinColor(double normalizedValue)
 
 SpectrogramWidget::SpectrogramWidget(QWidget *parent)
     : QWidget(parent),
-      engine("BirdNET_GLOBAL_6K_V2.4_Model_INT8.tflite"), m_timer(new QTimer(this)),
+      engine("BirdNET_1K_V1.4_Model_FP32.tflite"), m_timer(new QTimer(this)),
       m_currentSampleIndex(0),
       m_spectrogramImage(SCREEN_WIDTH, HEIGHT, QImage::Format_RGB32)
 {
@@ -109,6 +109,23 @@ void SpectrogramWidget::paintEvent(QPaintEvent *event)
     painter.drawLine(SCREEN_WIDTH - 1, 0, SCREEN_WIDTH - 1, HEIGHT);
 }
 
+int SpectrogramWidget::logarithmicFreq(int y)
+{
+    double fMin = 275.0;
+    double fMax = 48000 / 2.0;                              // We divide by 2 because we need at least 2 frames to get a frequency
+    double normalized_y = (double)y / (double)(HEIGHT - 1); // normalize to height
+
+    double freq = fMin * pow(fMax / fMin, normalized_y);
+
+    int new_y = (int)(freq / 48000 * FFT_SIZE);
+
+    if (new_y < 0)
+        new_y = 0;
+    if (new_y >= FFT_SIZE / 2)
+        new_y = FFT_SIZE / 2 - 1;
+    return new_y;
+}
+
 void SpectrogramWidget::updateSpectrogram()
 {
     if (m_pcmData.isEmpty())
@@ -147,16 +164,20 @@ void SpectrogramWidget::updateSpectrogram()
         {
 
             float window[WINDOW_SIZE];
-            for (int i = 0; i < WINDOW_SIZE; i++)
-                window[i] = (float)m_pcmData[start + i];
 
+            for (int i = 0; i < WINDOW_SIZE; i++)
+                window[i] = m_pcmData[start + i] / 32768.0f;
             float scores[MODEL_OUTPUT_SIZE];
+            // Print raw model scores
             Prediction out[5];
 
             engine.predict(window, scores);
             engine.get_top_results(scores, out);
-
-            printf("%s\n", out[0].label);
+            for (int i = 0; i < 5; i++)
+            {
+                if (out[i].score > 1){}
+                printf("%s %f\n", out[i].label, out[i].score);
+            }
         }
     }
     // Get window
@@ -167,7 +188,7 @@ void SpectrogramWidget::updateSpectrogram()
         vec[i] = (double)m_pcmData[m_currentSampleIndex + i] * multiplier;
     }
 
-    m_currentSampleIndex += 144000 / 90;; // Advance
+    m_currentSampleIndex += FFT_SIZE; // Advance
     fft(vec);                         // Process
 
     // Draw new column
@@ -176,7 +197,8 @@ void SpectrogramWidget::updateSpectrogram()
 
     for (int y = 0; y < HEIGHT; ++y)
     {
-        double magnitude = std::abs(vec[y]);
+        int new_y = logarithmicFreq(y);
+        double magnitude = std::abs(vec[new_y]);
         double dbFS = 20 * log10(magnitude / MAX_MAGNITUDE + 1e-9);
 
         double shiftedDb = dbFS - NOISE_FLOOR_DB;
