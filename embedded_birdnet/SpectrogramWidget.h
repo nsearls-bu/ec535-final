@@ -3,6 +3,8 @@
 #include <QImage>
 #include <QVector>
 #include "bird_identification_engine.h"
+#define MODEL_OUTPUT_SIZE 1133
+#define WINDOW_SIZE 144000
 class SpectrogramWidget : public QWidget
 {
     Q_OBJECT
@@ -36,6 +38,5 @@ private:
     std::vector<Prediction> m_lastPredictions;
     QString m_currentBirdName;
     float m_currentConfidence;
-    static const int WINDOW_SIZE = 14400;
-    static const int MODEL_OUTPUT_SIZE = 1000;
+
 };

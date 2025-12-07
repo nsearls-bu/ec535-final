@@ -220,7 +220,7 @@ void SpectrogramWidget::updateSpectrogram()
         m_spectrogramImage.setPixel(x_scroll, (HEIGHT - 1) - y, getMerlinColor(normalized));
 
         if (x_history < m_fullHistoryImage.width()) {
-            m_fullHistoryImage.setPixel(x_history, (HEIGHT - 1) - y, color);
+            m_fullHistoryImage.setPixel(x_history, (HEIGHT - 1) - y, getMerlinColor(normalized));
         }
     }
     update();
