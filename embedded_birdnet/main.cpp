@@ -31,7 +31,9 @@ int main(int argc, char *argv[])
     QPushButton *btnStop = new QPushButton("Stop");
     btnStop->setFixedHeight(30);
     liveLayout->addWidget(btnStop);
-
+    QPushButton *btnStart = new QPushButton("Start");
+    btnStart->setFixedHeight(30);
+    liveLayout->addWidget(btnStart);
     stackedWidget->addWidget(livePage);
 
     // Results summary
@@ -61,7 +63,9 @@ int main(int argc, char *argv[])
     stackedWidget->addWidget(resultsPage);
 
     QObject::connect(btnStop, &QPushButton::clicked, spectrogram, &SpectrogramWidget::stopSimulation);
-    QObject::connect(spectrogram, &SpectrogramWidget::analysisFinished, [&](){
+    QObject::connect(btnStart, &QPushButton::clicked, spectrogram, &SpectrogramWidget::startSimulation);
+    QObject::connect(spectrogram, &SpectrogramWidget::analysisFinished, [&]()
+                     {
 
         // Get the full image and scale it
         QImage history = spectrogram->getFullHistoryImage();
@@ -80,19 +84,15 @@ int main(int argc, char *argv[])
         lblPredictions->setText(html);
 
         // Switch Screen
-        stackedWidget->setCurrentIndex(1);
-    });
+        stackedWidget->setCurrentIndex(1); });
 
     // Restart Logic
-    QObject::connect(btnRestart, &QPushButton::clicked, [&](){
+    QObject::connect(btnRestart, &QPushButton::clicked, [&]()
+                     {
         // Switch back to Live Page
-        stackedWidget->setCurrentIndex(0);
-        spectrogram->startSimulation();
-    });
-
-    spectrogram->startSimulation();
+        stackedWidget->setCurrentIndex(0); });
 
     window.show();
-    
+
     return a.exec();
 }

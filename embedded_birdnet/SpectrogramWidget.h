@@ -30,8 +30,9 @@ private:
     int logarithmicFreq(int y);
     BirdIdentificationEngine engine;
     QTimer *m_timer;
-    QVector<short> m_pcmData;
+    QVector<float> m_pcmData;
     int m_currentSampleIndex;
+    int m_currentModelIndex;
     QImage m_spectrogramImage;
     QImage m_fullHistoryImage;
     int m_historyWriteX;

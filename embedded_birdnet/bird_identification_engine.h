@@ -28,6 +28,7 @@ public:
 
     int predict(float *window, float *out_scores);
     void get_top_results(const float scores[MODEL_OUTPUT_SIZE], Prediction out[5]);
+    void softmax(const float *logits, float *probabilities);
 
 private:
     TfLiteModel *model;
@@ -38,7 +39,6 @@ private:
 
     void load_labels();
     int count_labels();
-
     float *get_window(float *audio, int total_samples, int *pos);
 
     static int cmp_scores(const void *a, const void *b);

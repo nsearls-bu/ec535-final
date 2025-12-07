@@ -6,6 +6,7 @@
 #include <QFile>
 #include <complex>
 #include <algorithm>
+#include <sndfile.h>
 
 // GLOBAL CONSTANTS
 const int SCREEN_WIDTH = 480;
@@ -14,7 +15,7 @@ const int FFT_SIZE = 512;
 const int HEIGHT = FFT_SIZE / 2;
 const int REFRESH_RATE_MS = 10;
 
-const double NOISE_FLOOR_DB = -80.0;
+const double NOISE_FLOOR_DB = -70.0;
 const double SIGNAL_RANGE_DB = 50.0;
 
 typedef std::complex<double> Complex;
@@ -54,27 +55,32 @@ static QRgb getMerlinColor(double normalizedValue)
 // Spectogram widget
 SpectrogramWidget::SpectrogramWidget(QWidget *parent)
     : QWidget(parent),
-    engine("BirdNET_1K_V1.4_Model_FP32.tflite"),
-    m_timer(new QTimer(this)),
-    m_currentSampleIndex(0),
-    m_spectrogramImage(SCREEN_WIDTH, HEIGHT, QImage::Format_RGB32),
-    m_historyWriteX(0),
-    m_currentBirdName("Waiting..."),
-    m_currentConfidence(0.0f)
+      engine("BirdNET_1K_V1.4_Model_FP32.tflite"),
+      m_timer(new QTimer(this)),
+      m_currentSampleIndex(0),
+      m_currentModelIndex(0),
+      m_spectrogramImage(SCREEN_WIDTH, HEIGHT, QImage::Format_RGB32),
+      m_historyWriteX(0),
+      m_currentBirdName("Waiting..."),
+      m_currentConfidence(0.0f)
 {
     setFixedSize(SCREEN_WIDTH, SCREEN_HEIGHT);
     m_spectrogramImage.fill(Qt::white);
 
     if (!loadAudioData("soundscape_48k.wav"))
         qDebug() << "ERROR: Failed to load audio";
+    qDebug() << "Loaded audio";
 
-    for(int i=0; i<5; i++) m_lastPredictions.push_back({"Waiting...", 0.0f});
+    for (int i = 0; i < 5; i++)
+        m_lastPredictions.push_back({"Waiting...", 0.0f});
 
     connect(m_timer, &QTimer::timeout, this, &SpectrogramWidget::updateSpectrogram);
 }
 
 void SpectrogramWidget::startSimulation()
 {
+    qDebug() << "Starting";
+
     if (m_pcmData.isEmpty())
     {
         QMessageBox::warning(this, "No Data", "No audio loaded. Cannot start.");
@@ -134,6 +140,7 @@ int SpectrogramWidget::logarithmicFreq(int y)
 
 void SpectrogramWidget::updateSpectrogram()
 {
+
     if (m_pcmData.isEmpty())
     {
         stopSimulation();
@@ -148,7 +155,6 @@ void SpectrogramWidget::updateSpectrogram()
     // Clear the new column on the right
     painter.fillRect(SCREEN_WIDTH - 1, 0, 1, HEIGHT, Qt::white);
     painter.end();
-
 
     // Check if we reached the end of the audio file
     if (m_currentSampleIndex + FFT_SIZE >= m_pcmData.size())
@@ -165,34 +171,45 @@ void SpectrogramWidget::updateSpectrogram()
     {
         samplesSinceLastPrediction = 0;
 
-        int start = m_currentSampleIndex;
+        int start = m_currentModelIndex;
+
         if (start + WINDOW_SIZE <= m_pcmData.size())
         {
             float window[WINDOW_SIZE];
 
             for (int i = 0; i < WINDOW_SIZE; i++)
-                window[i] = m_pcmData[start + i] / 32768.0f;
-            float scores[MODEL_OUTPUT_SIZE];
+                window[i] = m_pcmData[start + i];
+            float avg = 0;
+            for (int i = 0; i < WINDOW_SIZE; i++)
+                avg += window[i];
+            avg /= WINDOW_SIZE;
+            qDebug() << "avg window =" << avg;
+            float logits[MODEL_OUTPUT_SIZE];
+            float probabilities[MODEL_OUTPUT_SIZE];
+
             Prediction out[5];
 
-            engine.predict(window, scores);
-            engine.get_top_results(scores, out);
+            engine.predict(window, logits);
+            engine.softmax(logits,probabilities);
+            engine.get_top_results(probabilities, out);
 
             // Update internal state for the paint event overlay
             m_currentBirdName = QString(out[0].label);
             m_currentConfidence = out[0].score;
-
+            qDebug() << m_currentBirdName << m_currentConfidence;
             m_lastPredictions.clear();
-            for(int k=0; k<5; k++) m_lastPredictions.push_back(out[k]);
+            for (int k = 0; k < 5; k++)
+                m_lastPredictions.push_back(out[k]);
+            m_currentModelIndex += WINDOW_SIZE;
         }
     }
 
     // Get window
     QVector<Complex> vec(FFT_SIZE);
-    for (int i = 0; i < FFT_SIZE; ++i) 
+    for (int i = 0; i < FFT_SIZE; ++i)
     {
         double multiplier = 0.5 * (1 - cos(2 * M_PI * i / (FFT_SIZE - 1)));
-        vec[i] = (double)m_pcmData[m_currentSampleIndex + i] * multiplier;
+        vec[i] = (double)m_pcmData[m_currentSampleIndex + i] * 32768.0 * multiplier;
     }
 
     m_currentSampleIndex += FFT_SIZE; // Advance
@@ -203,12 +220,14 @@ void SpectrogramWidget::updateSpectrogram()
     int x_scroll = SCREEN_WIDTH - 1;
 
     int x_history = m_historyWriteX;
-    if (x_history < m_fullHistoryImage.width()) {
+    if (x_history < m_fullHistoryImage.width())
+    {
         m_historyWriteX++;
     }
 
     for (int y = 0; y < HEIGHT; ++y)
     {
+
         int new_y = logarithmicFreq(y);
         double magnitude = std::abs(vec[new_y]);
         double dbFS = 20 * log10(magnitude / MAX_MAGNITUDE + 1e-9);
@@ -219,7 +238,8 @@ void SpectrogramWidget::updateSpectrogram()
 
         m_spectrogramImage.setPixel(x_scroll, (HEIGHT - 1) - y, getMerlinColor(normalized));
 
-        if (x_history < m_fullHistoryImage.width()) {
+        if (x_history < m_fullHistoryImage.width())
+        {
             m_fullHistoryImage.setPixel(x_history, (HEIGHT - 1) - y, getMerlinColor(normalized));
         }
     }
@@ -228,32 +248,36 @@ void SpectrogramWidget::updateSpectrogram()
 
 bool SpectrogramWidget::loadAudioData(const QString &filename)
 {
-    QFile audioFile(filename);
-    if (!audioFile.open(QIODevice::ReadOnly))
+    SF_INFO info = {0};
+    SNDFILE *snd = sf_open(filename.toUtf8().constData(), SFM_READ, &info);
+    if (!snd)
     {
         return false;
     }
+    float *buf = (float *)malloc(sizeof(float) * info.frames * info.channels);
+    sf_readf_float(snd, buf, info.frames);
+    sf_close(snd);
 
-    audioFile.seek(44);
-    QByteArray rawData = audioFile.readAll();
-    audioFile.close();
-
-    if (rawData.size() < FFT_SIZE * 2)
-        return false;
-
-    int totalSamples = rawData.size() / 2;
-    const short *pcmData = reinterpret_cast<const short *>(rawData.constData());
-    m_pcmData.reserve(totalSamples);
-    for (int i = 0; i < totalSamples; ++i)
+    float peak = 0.0f;
+    for (int i = 0; i < info.frames; i++)
     {
-        m_pcmData.append(pcmData[i]);
+        // Standard find max algorithm to find the loudest part of the audio file
+        float v = abs(buf[i]);
+        if (v > peak)
+            peak = v;
     }
 
-    // History image init
-    int totalColumns = totalSamples / FFT_SIZE;
+    if (peak < 1e-12f)
+        peak = 1.0f;
+    m_pcmData.clear();
+    m_pcmData.reserve(info.frames);
+    for (int i = 0; i < info.frames; i++)
+    {
+        m_pcmData.append((buf[i] / peak));
+    }
+    int totalColumns = info.frames / FFT_SIZE;
     m_fullHistoryImage = QImage(totalColumns, HEIGHT, QImage::Format_RGB32);
     m_fullHistoryImage.fill(Qt::white);
     m_historyWriteX = 0;
-
     return true;
 }

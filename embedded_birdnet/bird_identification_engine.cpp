@@ -20,7 +20,6 @@ BirdIdentificationEngine::BirdIdentificationEngine(const char *modelPath)
     printf("Loaded model %s\n", modelPath);
 
     load_labels();
-    printf("LABEL[0] = '%s'\n", labels[0]);
 }
 
 BirdIdentificationEngine::~BirdIdentificationEngine()
@@ -35,7 +34,6 @@ BirdIdentificationEngine::~BirdIdentificationEngine()
 
 int BirdIdentificationEngine::predict(float *window, float *out_scores)
 {
-
     TfLiteTensor *input = TfLiteInterpreterGetInputTensor(interpreter, 0);
     int dims = TfLiteTensorNumDims(input);
     if (TfLiteTensorCopyFromBuffer(input, window, WINDOW_SIZE * sizeof(float)) != kTfLiteOk)
@@ -113,6 +111,29 @@ float *BirdIdentificationEngine::get_window(float *audio, int total_samples, int
     float *win = audio + *pos;
     *pos += WINDOW_SIZE;
     return win;
+}
+
+void BirdIdentificationEngine::softmax(const float *logits, float *probabilities)
+{
+    float max = logits[0];
+    for (int i = 0; i < MODEL_OUTPUT_SIZE; i++)
+    {
+        // find max
+        if (logits[i] > max)
+        {
+            max = logits[i];
+        }
+    }
+    float sum = 0.0;
+    for (int i = 0; i < MODEL_OUTPUT_SIZE; i++)
+    {
+        float e = expf(logits[i]);
+        probabilities[i] = e;
+        sum += e;
+    }
+    for (int i = 0 ; i < MODEL_OUTPUT_SIZE; i++) {
+        probabilities[i] = probabilities[i] / sum;
+    }
 }
 
 void BirdIdentificationEngine::get_top_results(const float scores[MODEL_OUTPUT_SIZE],
