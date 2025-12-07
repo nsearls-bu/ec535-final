@@ -25,6 +25,7 @@ CFLAGS_ARM = \
 
 LDFLAGS_ARM = \
     --sysroot=$(SYSROOT) \
+    -pg \
     -Llib_arm \
     -Llib_arm/tf_deps \
     -Wl,-rpath,$$ORIGIN/lib_arm \

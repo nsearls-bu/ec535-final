@@ -35,6 +35,10 @@ int main(int argc, char *argv[])
     btnStart->setFixedHeight(30);
     liveLayout->addWidget(btnStart);
     stackedWidget->addWidget(livePage);
+    QPushButton *btnQuit = new QPushButton("Quit");
+    btnQuit->setFixedHeight(30);
+    liveLayout->addWidget(btnQuit);
+    stackedWidget->addWidget(livePage);
 
     // Results summary
     QWidget *resultsPage = new QWidget;
@@ -64,6 +68,8 @@ int main(int argc, char *argv[])
 
     QObject::connect(btnStop, &QPushButton::clicked, spectrogram, &SpectrogramWidget::stopSimulation);
     QObject::connect(btnStart, &QPushButton::clicked, spectrogram, &SpectrogramWidget::startSimulation);
+    QObject::connect(btnQuit, &QPushButton::clicked, spectrogram, &QCoreApplication::quit);
+
     QObject::connect(spectrogram, &SpectrogramWidget::analysisFinished, [&]()
                      {
 
@@ -87,10 +93,10 @@ int main(int argc, char *argv[])
         stackedWidget->setCurrentIndex(1); });
 
     // Restart Logic
-    QObject::connect(btnRestart, &QPushButton::clicked, [&]() {
+    QObject::connect(btnRestart, &QPushButton::clicked, [&]()
+                     {
         spectrogram->reset();
-        stackedWidget->setCurrentIndex(0); 
-    });
+        stackedWidget->setCurrentIndex(0); });
 
     window.show();
 

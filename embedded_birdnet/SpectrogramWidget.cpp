@@ -4,36 +4,26 @@
 #include <QDebug>
 #include <QtMath>
 #include <QFile>
-#include <complex>
 #include <algorithm>
 #include <sndfile.h>
+#include <complex>
 
-// GLOBAL CONSTANTS
-const int SCREEN_WIDTH = 480;
-const int SCREEN_HEIGHT = 256;
-const int FFT_SIZE = 512;
-const int HEIGHT = FFT_SIZE / 2;
-const int REFRESH_RATE_MS = 10;
 
-const double NOISE_FLOOR_DB = -70.0;
-const double SIGNAL_RANGE_DB = 50.0;
-
-typedef std::complex<double> Complex;
 
 // FFT
-static void fft(QVector<Complex> &a)
+static void fft(Complex *a, int n)
 {
-    int n = a.size();
     if (n <= 1)
         return;
-    QVector<Complex> a0(n / 2), a1(n / 2);
+
+    Complex a0[n / 2], a1[n / 2];
     for (int i = 0; i < n / 2; i++)
     {
         a0[i] = a[2 * i];
         a1[i] = a[2 * i + 1];
     }
-    fft(a0);
-    fft(a1);
+    fft(a0, n / 2);
+    fft(a1, n / 2);
     double ang = 2 * M_PI / n;
     Complex w(1), wn(cos(ang), sin(ang));
     for (int i = 0; i < n / 2; i++)
@@ -66,13 +56,12 @@ SpectrogramWidget::SpectrogramWidget(QWidget *parent)
 {
     setFixedSize(SCREEN_WIDTH, SCREEN_HEIGHT);
     m_spectrogramImage.fill(Qt::white);
-
     if (!loadAudioData("soundscape_48k.wav"))
         qDebug() << "ERROR: Failed to load audio";
     qDebug() << "Loaded audio";
 
     for (int i = 0; i < 5; i++)
-        m_lastPredictions.push_back({"Waiting...", 0.0f});
+        m_lastPredictions.push_back(Prediction{"Waiting...", 0.0f});
 
     connect(m_timer, &QTimer::timeout, this, &SpectrogramWidget::updateSpectrogram);
 }
@@ -190,7 +179,7 @@ void SpectrogramWidget::updateSpectrogram()
             Prediction out[5];
 
             engine.predict(window, logits);
-            engine.softmax(logits,probabilities);
+            engine.softmax(logits, probabilities);
             engine.get_top_results(probabilities, out);
 
             // Update internal state for the paint event overlay
@@ -205,15 +194,15 @@ void SpectrogramWidget::updateSpectrogram()
     }
 
     // Get window
-    QVector<Complex> vec(FFT_SIZE);
     for (int i = 0; i < FFT_SIZE; ++i)
     {
         double multiplier = 0.5 * (1 - cos(2 * M_PI * i / (FFT_SIZE - 1)));
-        vec[i] = (double)m_pcmData[m_currentSampleIndex + i] * 32768.0 * multiplier;
+        vec[i] = Complex(
+            (double)m_pcmData[m_currentSampleIndex + i] * 32768.0 * multiplier);
     }
 
     m_currentSampleIndex += FFT_SIZE; // Advance
-    fft(vec);                         // Process
+    fft(vec, FFT_SIZE);                         // Process
 
     // Draw new column
     const double MAX_MAGNITUDE = 32768.0 * FFT_SIZE;
@@ -287,17 +276,17 @@ void SpectrogramWidget::reset()
     m_currentSampleIndex = 0;
     m_currentModelIndex = 0;
     m_historyWriteX = 0;
-    
+
     // Clear images
     m_spectrogramImage.fill(Qt::white);
     m_fullHistoryImage.fill(Qt::white);
-    
+
     // Clear predictions
     m_currentBirdName = "Waiting...";
     m_currentConfidence = 0.0f;
     m_lastPredictions.clear();
     for (int i = 0; i < 5; i++)
-        m_lastPredictions.push_back({"Waiting...", 0.0f});
-        
+        m_lastPredictions.push_back(Prediction{"Waiting...", 0.0f});
+
     update();
 }
