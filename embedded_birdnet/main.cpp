@@ -87,10 +87,10 @@ int main(int argc, char *argv[])
         stackedWidget->setCurrentIndex(1); });
 
     // Restart Logic
-    QObject::connect(btnRestart, &QPushButton::clicked, [&]()
-                     {
-        // Switch back to Live Page
-        stackedWidget->setCurrentIndex(0); });
+    QObject::connect(btnRestart, &QPushButton::clicked, [&]() {
+        spectrogram->reset();
+        stackedWidget->setCurrentIndex(0); 
+    });
 
     window.show();
 

@@ -12,7 +12,8 @@ public:
     explicit SpectrogramWidget(QWidget *parent = nullptr);
     void startSimulation();
     void stopSimulation();
-
+    void reset();
+    
     QImage getFullHistoryImage() const { return m_fullHistoryImage; }
     std::vector<Prediction> getLastPredictions() const { return m_lastPredictions; }
 

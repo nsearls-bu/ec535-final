@@ -281,3 +281,23 @@ bool SpectrogramWidget::loadAudioData(const QString &filename)
     m_historyWriteX = 0;
     return true;
 }
+
+void SpectrogramWidget::reset()
+{
+    m_currentSampleIndex = 0;
+    m_currentModelIndex = 0;
+    m_historyWriteX = 0;
+    
+    // Clear images
+    m_spectrogramImage.fill(Qt::white);
+    m_fullHistoryImage.fill(Qt::white);
+    
+    // Clear predictions
+    m_currentBirdName = "Waiting...";
+    m_currentConfidence = 0.0f;
+    m_lastPredictions.clear();
+    for (int i = 0; i < 5; i++)
+        m_lastPredictions.push_back({"Waiting...", 0.0f});
+        
+    update();
+}
