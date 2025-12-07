@@ -1,22 +1,11 @@
-#include <QApplication>
-#include <QMainWindow>
-#include <QWidget>
-#include <QTimer>
-#include <QImage>
-#include <QPainter>
-#include <QColor>
-#include <QFile>
-#include <QMessageBox>
-#include <QVBoxLayout>
-#include <QPushButton>
-#include <QLabel>
-#include <QDebug>
 #include "SpectrogramWidget.h"
+#include <QPainter>
+#include <QMessageBox>
+#include <QDebug>
 #include <QtMath>
+#include <QFile>
 #include <complex>
-#include <iostream>
 #include <algorithm>
-#include "bird_identification_engine.h"
 
 // GLOBAL CONSTANTS
 const int SCREEN_WIDTH = 480;
@@ -63,18 +52,23 @@ static QRgb getMerlinColor(double normalizedValue)
 }
 
 // Spectogram widget
-
 SpectrogramWidget::SpectrogramWidget(QWidget *parent)
     : QWidget(parent),
-      engine("BirdNET_1K_V1.4_Model_FP32.tflite"), m_timer(new QTimer(this)),
-      m_currentSampleIndex(0),
-      m_spectrogramImage(SCREEN_WIDTH, HEIGHT, QImage::Format_RGB32)
+    engine("BirdNET_1K_V1.4_Model_FP32.tflite"),
+    m_timer(new QTimer(this)),
+    m_currentSampleIndex(0),
+    m_spectrogramImage(SCREEN_WIDTH, HEIGHT, QImage::Format_RGB32),
+    m_historyWriteX(0),
+    m_currentBirdName("Waiting..."),
+    m_currentConfidence(0.0f)
 {
     setFixedSize(SCREEN_WIDTH, SCREEN_HEIGHT);
     m_spectrogramImage.fill(Qt::white);
 
     if (!loadAudioData("soundscape_48k.wav"))
-        qDebug() << "ERROR: Failed to load audio.wav";
+        qDebug() << "ERROR: Failed to load audio";
+
+    for(int i=0; i<5; i++) m_lastPredictions.push_back({"Waiting...", 0.0f});
 
     connect(m_timer, &QTimer::timeout, this, &SpectrogramWidget::updateSpectrogram);
 }
@@ -89,24 +83,39 @@ void SpectrogramWidget::startSimulation()
     if (!m_timer->isActive())
     {
         m_timer->start(REFRESH_RATE_MS);
-        qDebug() << "Simulation STARTED.";
     }
 }
 
 void SpectrogramWidget::stopSimulation()
 {
     m_timer->stop();
-    qDebug() << "Simulation STOPPED.";
+    emit analysisFinished();
 }
 
 void SpectrogramWidget::paintEvent(QPaintEvent *event)
 {
+    Q_UNUSED(event);
     QPainter painter(this);
     painter.drawImage(0, 0, m_spectrogramImage);
 
     // Red cursor line at the right edge (where new data appears)
     painter.setPen(QPen(Qt::red, 1));
     painter.drawLine(SCREEN_WIDTH - 1, 0, SCREEN_WIDTH - 1, HEIGHT);
+
+    // Draws overlay text
+    painter.fillRect(0, 0, SCREEN_WIDTH, 30, QColor(255, 255, 255, 200));
+
+    painter.setPen(Qt::black);
+    QFont font = painter.font();
+    font.setPixelSize(14);
+    font.setBold(true);
+    painter.setFont(font);
+
+    QString statusText = QString("Bird: %1  (%2%)")
+                             .arg(m_currentBirdName)
+                             .arg(m_currentConfidence * 100, 0, 'f', 1);
+
+    painter.drawText(10, 20, statusText);
 }
 
 int SpectrogramWidget::logarithmicFreq(int y)
@@ -114,11 +123,8 @@ int SpectrogramWidget::logarithmicFreq(int y)
     double fMin = 275.0;
     double fMax = 48000 / 2.0;                              // We divide by 2 because we need at least 2 frames to get a frequency
     double normalized_y = (double)y / (double)(HEIGHT - 1); // normalize to height
-
     double freq = fMin * pow(fMax / fMin, normalized_y);
-
     int new_y = (int)(freq / 48000 * FFT_SIZE);
-
     if (new_y < 0)
         new_y = 0;
     if (new_y >= FFT_SIZE / 2)
@@ -143,46 +149,47 @@ void SpectrogramWidget::updateSpectrogram()
     painter.fillRect(SCREEN_WIDTH - 1, 0, 1, HEIGHT, Qt::white);
     painter.end();
 
+
     // Check if we reached the end of the audio file
     if (m_currentSampleIndex + FFT_SIZE >= m_pcmData.size())
     {
         stopSimulation();
         m_currentSampleIndex = 0; // Reset so next start plays from beginning
-        QMessageBox::information(this, "Analysis Complete", "bird is not identified");
         return;
     }
+
     // RUN PREDICTION MODEL
     static int samplesSinceLastPrediction = 0;
     samplesSinceLastPrediction += FFT_SIZE;
     if (samplesSinceLastPrediction >= WINDOW_SIZE)
     {
-        printf("%d\n", samplesSinceLastPrediction);
         samplesSinceLastPrediction = 0;
 
         int start = m_currentSampleIndex;
         if (start + WINDOW_SIZE <= m_pcmData.size())
         {
-
             float window[WINDOW_SIZE];
 
             for (int i = 0; i < WINDOW_SIZE; i++)
                 window[i] = m_pcmData[start + i] / 32768.0f;
             float scores[MODEL_OUTPUT_SIZE];
-            // Print raw model scores
             Prediction out[5];
 
             engine.predict(window, scores);
             engine.get_top_results(scores, out);
-            for (int i = 0; i < 5; i++)
-            {
-                if (out[i].score > 1){}
-                printf("%s %f\n", out[i].label, out[i].score);
-            }
+
+            // Update internal state for the paint event overlay
+            m_currentBirdName = QString(out[0].label);
+            m_currentConfidence = out[0].score;
+
+            m_lastPredictions.clear();
+            for(int k=0; k<5; k++) m_lastPredictions.push_back(out[k]);
         }
     }
+
     // Get window
     QVector<Complex> vec(FFT_SIZE);
-    for (int i = 0; i < FFT_SIZE; ++i)
+    for (int i = 0; i < FFT_SIZE; ++i) 
     {
         double multiplier = 0.5 * (1 - cos(2 * M_PI * i / (FFT_SIZE - 1)));
         vec[i] = (double)m_pcmData[m_currentSampleIndex + i] * multiplier;
@@ -193,7 +200,12 @@ void SpectrogramWidget::updateSpectrogram()
 
     // Draw new column
     const double MAX_MAGNITUDE = 32768.0 * FFT_SIZE;
-    const int x = SCREEN_WIDTH - 1;
+    int x_scroll = SCREEN_WIDTH - 1;
+
+    int x_history = m_historyWriteX;
+    if (x_history < m_fullHistoryImage.width()) {
+        m_historyWriteX++;
+    }
 
     for (int y = 0; y < HEIGHT; ++y)
     {
@@ -205,9 +217,12 @@ void SpectrogramWidget::updateSpectrogram()
         double normalized = shiftedDb / SIGNAL_RANGE_DB;
         normalized = qBound(0.0, normalized, 1.0);
 
-        m_spectrogramImage.setPixel(x, (HEIGHT - 1) - y, getMerlinColor(normalized));
-    }
+        m_spectrogramImage.setPixel(x_scroll, (HEIGHT - 1) - y, getMerlinColor(normalized));
 
+        if (x_history < m_fullHistoryImage.width()) {
+            m_fullHistoryImage.setPixel(x_history, (HEIGHT - 1) - y, color);
+        }
+    }
     update();
 }
 
@@ -216,7 +231,6 @@ bool SpectrogramWidget::loadAudioData(const QString &filename)
     QFile audioFile(filename);
     if (!audioFile.open(QIODevice::ReadOnly))
     {
-        qDebug() << "Could not open file:" << filename;
         return false;
     }
 
@@ -235,6 +249,11 @@ bool SpectrogramWidget::loadAudioData(const QString &filename)
         m_pcmData.append(pcmData[i]);
     }
 
-    qDebug() << "Loaded" << totalSamples << "samples.";
+    // History image init
+    int totalColumns = totalSamples / FFT_SIZE;
+    m_fullHistoryImage = QImage(totalColumns, HEIGHT, QImage::Format_RGB32);
+    m_fullHistoryImage.fill(Qt::white);
+    m_historyWriteX = 0;
+
     return true;
 }
