@@ -52,6 +52,17 @@ engine_x86.o: bird_identification_engine.cpp bird_identification_engine.h
 engine_arm.o: bird_identification_engine.cpp bird_identification_engine.h
 	$(CC_ARM) $(CFLAGS_ARM) -c bird_identification_engine.cpp -o engine_arm.o
 
+worker.moc.cpp: worker.h
+	moc worker.h -o worker.moc.cpp
+
+worker_x86.o: worker.cpp worker.h worker.moc.cpp
+	$(CC_X86) -c -fPIC worker.cpp  -o worker_x86.o $(QT5_CFLAGS) $(CFLAGS_X86)
+	$(CC_X86) -c -fPIC worker.moc.cpp  -o worker_x86.moc.o $(QT5_CFLAGS) $(CFLAGS_X86)
+
+worker_arm.o: worker.cpp worker.h worker.moc.cpp
+	$(CC_ARM) -c -fPIC worker.cpp  -o worker_arm.o $(CFLAGS_ARM)
+	$(CC_ARM) -c -fPIC worker.moc.cpp  -o worker_arm.moc.o  $(CFLAGS_ARM)
+
 SpectrogramWidget.moc.cpp: SpectrogramWidget.h
 	moc SpectrogramWidget.h -o SpectrogramWidget.moc.cpp
 
@@ -69,12 +80,12 @@ main_x86.o: main.cpp SpectrogramWidget.h
 main_arm.o: main.cpp SpectrogramWidget.h
 	$(CC_ARM) $(CFLAGS_ARM) -c main.cpp -o main_arm.o
 
-bird_identifier_x86: main_x86.o SpectrogramWidget_x86.o SpectrogramWidget.moc_x86.o engine_x86.o
-	$(CC_X86) -pg main_x86.o SpectrogramWidget_x86.o SpectrogramWidget.moc_x86.o engine_x86.o \
+bird_identifier_x86: main_x86.o SpectrogramWidget_x86.o SpectrogramWidget.moc_x86.o engine_x86.o worker_x86.o worker_x86.moc.o
+	$(CC_X86) -pg main_x86.o SpectrogramWidget_x86.o SpectrogramWidget.moc_x86.o engine_x86.o worker_x86.o worker_x86.moc.o\
 	    -o bird_identifier_x86 $(QT5_LIBS) $(LDFLAGS_X86)
 
-bird_identifier_arm: main_arm.o SpectrogramWidget_arm.o SpectrogramWidget.moc_arm.o engine_arm.o
-	$(CC_ARM) -g -pg main_arm.o SpectrogramWidget_arm.o SpectrogramWidget.moc_arm.o engine_arm.o \
+bird_identifier_arm: main_arm.o SpectrogramWidget_arm.o SpectrogramWidget.moc_arm.o engine_arm.o worker_arm.o worker_arm.moc.o 
+	$(CC_ARM) -g -pg main_arm.o SpectrogramWidget_arm.o SpectrogramWidget.moc_arm.o engine_arm.o worker_arm.o worker_arm.moc.o\
 	    -o bird_identifier_arm $(LDFLAGS_ARM)
 
 clean:

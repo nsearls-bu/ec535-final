@@ -3,14 +3,16 @@
 #include <QImage>
 #include <complex>
 #include <QVector>
+#include <QThread>
 #include "bird_identification_engine.h"
+#include "worker.h"
 #define MODEL_OUTPUT_SIZE 1133
 #define WINDOW_SIZE 144000
 #define SCREEN_WIDTH 480
 #define SCREEN_HEIGHT 256
 #define FFT_SIZE 512
 #define HEIGHT 256
-#define REFRESH_RATE_MS 10
+#define REFRESH_RATE_MS 30
 
 const double NOISE_FLOOR_DB = -70.0;
 const double SIGNAL_RANGE_DB = 50.0;
@@ -30,6 +32,8 @@ public:
 
 signals:
     void analysisFinished();
+    void runRequest(const QVector<float> &pcm, int startIndex);
+    
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -40,10 +44,13 @@ private slots:
 private:
     bool loadAudioData(const QString &filename);
     int logarithmicFreq(int y);
+    QThread m_workerThread;
+    Worker *m_worker;
     BirdIdentificationEngine engine;
     QTimer *m_timer;
     QVector<float> m_pcmData;
     Complex vec[FFT_SIZE];
+    void handleDone(QVector<Prediction> preds);
     int m_currentSampleIndex;
     int m_currentModelIndex;
     QImage m_spectrogramImage;

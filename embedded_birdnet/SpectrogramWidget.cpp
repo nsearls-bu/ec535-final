@@ -8,8 +8,6 @@
 #include <sndfile.h>
 #include <complex>
 
-
-
 // FFT
 static void fft(Complex *a, int n)
 {
@@ -54,16 +52,47 @@ SpectrogramWidget::SpectrogramWidget(QWidget *parent)
       m_currentBirdName("Waiting..."),
       m_currentConfidence(0.0f)
 {
+    //Setup screen
     setFixedSize(SCREEN_WIDTH, SCREEN_HEIGHT);
     m_spectrogramImage.fill(Qt::white);
+
+    //Load audio
     if (!loadAudioData("soundscape_48k.wav"))
         qDebug() << "ERROR: Failed to load audio";
     qDebug() << "Loaded audio";
 
+    //Register types the workers gets
+    qRegisterMetaType<QVector<float>>("QVector<float>");
+    qRegisterMetaType<QVector<Prediction>>("QVector<Prediction>");
+
+    //Setup end analyzer
     for (int i = 0; i < 5; i++)
         m_lastPredictions.push_back(Prediction{"Waiting...", 0.0f});
 
     connect(m_timer, &QTimer::timeout, this, &SpectrogramWidget::updateSpectrogram);
+
+
+    //Setup worker
+    m_worker = new Worker();
+    m_worker->moveToThread(&m_workerThread);
+
+    connect(this, &SpectrogramWidget::runRequest,
+            m_worker, &Worker::run);
+    connect(m_worker, &Worker::done,
+            this, &SpectrogramWidget::handleDone);
+
+    m_workerThread.start();
+}
+void SpectrogramWidget::handleDone(QVector<Prediction> preds)
+{
+    m_lastPredictions.clear();
+    for (int k = 0; k < 5; k++)
+        m_lastPredictions.push_back(preds[k]);
+
+    m_currentBirdName = QString(preds[0].label);
+    m_currentConfidence = preds[0].score;
+
+    qDebug() << m_currentBirdName << m_currentConfidence;
 }
 
 void SpectrogramWidget::startSimulation()
@@ -164,31 +193,7 @@ void SpectrogramWidget::updateSpectrogram()
 
         if (start + WINDOW_SIZE <= m_pcmData.size())
         {
-            float window[WINDOW_SIZE];
-
-            for (int i = 0; i < WINDOW_SIZE; i++)
-                window[i] = m_pcmData[start + i];
-            float avg = 0;
-            for (int i = 0; i < WINDOW_SIZE; i++)
-                avg += window[i];
-            avg /= WINDOW_SIZE;
-            qDebug() << "avg window =" << avg;
-            float logits[MODEL_OUTPUT_SIZE];
-            float probabilities[MODEL_OUTPUT_SIZE];
-
-            Prediction out[5];
-
-            engine.predict(window, logits);
-            engine.softmax(logits, probabilities);
-            engine.get_top_results(probabilities, out);
-
-            // Update internal state for the paint event overlay
-            m_currentBirdName = QString(out[0].label);
-            m_currentConfidence = out[0].score;
-            qDebug() << m_currentBirdName << m_currentConfidence;
-            m_lastPredictions.clear();
-            for (int k = 0; k < 5; k++)
-                m_lastPredictions.push_back(out[k]);
+            emit runRequest(m_pcmData, start);
             m_currentModelIndex += WINDOW_SIZE;
         }
     }
@@ -202,7 +207,7 @@ void SpectrogramWidget::updateSpectrogram()
     }
 
     m_currentSampleIndex += FFT_SIZE; // Advance
-    fft(vec, FFT_SIZE);                         // Process
+    fft(vec, FFT_SIZE);               // Process
 
     // Draw new column
     const double MAX_MAGNITUDE = 32768.0 * FFT_SIZE;
