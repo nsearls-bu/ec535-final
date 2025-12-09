@@ -97,5 +97,8 @@ profile.txt
 !bird_testing/lib_arm/*.so
 !bird_testing/lib_arm/*.a
 !bird_testing/lib_arm/tf_deps/*.so
-
+tinybird/audio_clips
+BirdNET-Tiny-Forge
+tinybird/mels
 bird_inference_arm
+*.h5
