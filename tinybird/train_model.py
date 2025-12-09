@@ -118,21 +118,13 @@ def main():
                   loss="categorical_crossentropy",
                   metrics=["accuracy"])
 
-    ckpt = keras.callbacks.ModelCheckpoint("best_model.keras",
-                                           save_best_only=True,
-                                           monitor="val_accuracy",
-                                           mode="max")
 
-    rlrop = keras.callbacks.ReduceLROnPlateau(monitor="val_loss",
-                                              factor=0.5,
-                                              patience=8,
-                                              min_lr=1e-6)
+
 
     h = model.fit(train,
                   validation_data=val,
                   epochs=100,
                   class_weight=cw,
-                  callbacks=[ckpt, rlrop],
                   verbose=1)
 
     model.save("final_model.h5")
