@@ -33,10 +33,9 @@ def make_mel(segment):
         power=2.0,
     )
     mel_db = librosa.power_to_db(mel, ref=np.max)
-    mel_norm = (mel_db - mel_db.min()) / (mel_db.max() - mel_db.min() + 1e-9)
+    mel_norm = 2 * (mel_db - mel_db.min()) / (mel_db.max() - mel_db.min() + 1e-8) - 1  # Use mel_db here
     mel_norm = librosa.util.fix_length(mel_norm, size=64, axis=1)
     return mel_norm.astype(np.float32).reshape(1, 64, 64, 1)
-
 def predict_from_mel(mel):
     interpreter.set_tensor(INPUT_INDEX, mel)
     interpreter.invoke()
@@ -46,7 +45,7 @@ def top_predictions(scores, n=5):
     idx = np.argsort(scores)[::-1][:n]
     return [(LABELS[i], float(scores[i])) for i in idx]
 
-data, sr = librosa.load("soundscape.wav", sr=None)
+data, sr = librosa.load("cardinal.wav", sr=None)
 audio = librosa.resample(data, orig_sr=sr, target_sr=SAMPLE_RATE)
 
 HOP_SIZE = SAMPLE_RATE // 2
@@ -63,5 +62,5 @@ for window_idx in range((len(audio) - WINDOW_SIZE) // HOP_SIZE):
     for label, score in top_predictions(scores):
         print(f"{label}: {score:.4f}")
 
-    if window_idx == 19:
+    if window_idx == 100:
         break
