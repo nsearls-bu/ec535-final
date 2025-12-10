@@ -99,3 +99,4 @@ profile.txt
 !bird_testing/lib_arm/tf_deps/*.so
 
 bird_inference_arm
+tinybird

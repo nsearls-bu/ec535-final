@@ -10,6 +10,11 @@
 
 int main(int argc, char *argv[])
 {
+    if (argc != 2 || !argv[1] || strlen(argv[1]) > 32)
+    {
+        printf("%s\n", "USAGE: ./bird_inference_arm <audio.wav>");
+        exit(1);
+    }
     QApplication a(argc, argv);
 
     QMainWindow window;
@@ -25,7 +30,7 @@ int main(int argc, char *argv[])
     liveLayout->setContentsMargins(0, 0, 0, 0);
     liveLayout->setSpacing(0);
 
-    SpectrogramWidget *spectrogram = new SpectrogramWidget;
+    SpectrogramWidget *spectrogram = new SpectrogramWidget(nullptr, argv[1]);
     liveLayout->addWidget(spectrogram);
 
     QPushButton *btnStop = new QPushButton("Stop");
@@ -48,7 +53,7 @@ int main(int argc, char *argv[])
     // Full spectogram
     QLabel *lblHistory = new QLabel();
     lblHistory->setScaledContents(true);
-    lblHistory->setFixedHeight(100); // Top half of screen
+    lblHistory->setFixedHeight(90); // Top half of screen
     lblHistory->setStyleSheet("border: 1px solid black; background: white;");
 
     // Top 5 list
@@ -64,11 +69,18 @@ int main(int argc, char *argv[])
     resLayout->addWidget(lblPredictions, 1);
     resLayout->addWidget(btnRestart);
 
+    QPushButton *btnQuitRestartPage = new QPushButton("Quit");
+    btnQuitRestartPage->setFixedHeight(30);
+    btnQuitRestartPage->setFixedHeight(25);
+
+    resLayout->addWidget(btnQuitRestartPage);
+
     stackedWidget->addWidget(resultsPage);
 
     QObject::connect(btnStop, &QPushButton::clicked, spectrogram, &SpectrogramWidget::stopSimulation);
     QObject::connect(btnStart, &QPushButton::clicked, spectrogram, &SpectrogramWidget::startSimulation);
-    QObject::connect(btnQuit, &QPushButton::clicked, spectrogram, &QCoreApplication::quit);
+    QObject::connect(btnQuit, &QPushButton::clicked, &QCoreApplication::quit);
+    QObject::connect(btnQuitRestartPage, &QPushButton::clicked, &QCoreApplication::quit);
 
     QObject::connect(spectrogram, &SpectrogramWidget::analysisFinished, [&]()
                      {
@@ -78,13 +90,13 @@ int main(int argc, char *argv[])
         lblHistory->setPixmap(QPixmap::fromImage(history));
 
         // Get predictions and format text
-        std::vector<Prediction> preds = spectrogram->getLastPredictions();
+        std::vector<Prediction> predictions = spectrogram->getLastPredictions();
         QString html = "<table width='100%'>";
-        for(size_t i=0; i<preds.size(); i++) {
+        for(size_t i=0; i<predictions.size(); i++) {
             html += QString("<tr><td>%1. <b>%2</b></td><td align='right'>%3%</td></tr>")
             .arg(i+1)
-                .arg(preds[i].label)
-                .arg(preds[i].score * 100, 0, 'f', 1);
+                .arg(predictions[i].label)
+                .arg(predictions[i].score * 100, 0, 'f', 1);
         }
         html += "</table>";
         lblPredictions->setText(html);

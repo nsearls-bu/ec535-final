@@ -13,6 +13,7 @@ LDFLAGS_X86 = -Llib_x86 -ltensorflowlite_c -lsndfile -lsamplerate
 CFLAGS_ARM = \
     --sysroot=$(SYSROOT) \
     -pg \
+    -O3 \
     -march=armv7-a -mfpu=vfpv3-d16 -mfloat-abi=hard \
     -I../tensorflow \
     -I../libsamplerate/include \
