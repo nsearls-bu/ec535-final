@@ -39,11 +39,17 @@ static QRgb getMerlinColor(double normalizedValue)
     grayLevel = qBound(0, grayLevel, 255);
     return qRgb(grayLevel, grayLevel, grayLevel);
 }
+SpectrogramWidget::~SpectrogramWidget()
+{
+    m_timer->stop();
+    m_workerThread.quit();
+    m_workerThread.wait();
 
+    delete m_worker;
+}
 // Spectogram widget
-SpectrogramWidget::SpectrogramWidget(QWidget *parent)
+SpectrogramWidget::SpectrogramWidget(QWidget *parent, char *audio_path)
     : QWidget(parent),
-      engine("BirdNET_1K_V1.4_Model_FP32.tflite"),
       m_timer(new QTimer(this)),
       m_currentSampleIndex(0),
       m_currentModelIndex(0),
@@ -52,27 +58,27 @@ SpectrogramWidget::SpectrogramWidget(QWidget *parent)
       m_currentBirdName("Waiting..."),
       m_currentConfidence(0.0f)
 {
-    //Setup screen
+    // Setup screen
     setFixedSize(SCREEN_WIDTH, SCREEN_HEIGHT);
     m_spectrogramImage.fill(Qt::white);
 
-    //Load audio
-    if (!loadAudioData("soundscape_48k.wav"))
+    // Load audio
+    if (!loadAudioData(audio_path))
         qDebug() << "ERROR: Failed to load audio";
     qDebug() << "Loaded audio";
 
-    //Register types the workers gets
+    // Register types the workers gets
     qRegisterMetaType<QVector<float>>("QVector<float>");
     qRegisterMetaType<QVector<Prediction>>("QVector<Prediction>");
+    qRegisterMetaType<std::queue<QVector<Prediction>>>("std::queue<QVector<Prediction>>");
 
-    //Setup end analyzer
+    // Setup end analyzer
     for (int i = 0; i < 5; i++)
         m_lastPredictions.push_back(Prediction{"Waiting...", 0.0f});
 
     connect(m_timer, &QTimer::timeout, this, &SpectrogramWidget::updateSpectrogram);
 
-
-    //Setup worker
+    // Setup worker
     m_worker = new Worker();
     m_worker->moveToThread(&m_workerThread);
 
@@ -83,16 +89,12 @@ SpectrogramWidget::SpectrogramWidget(QWidget *parent)
 
     m_workerThread.start();
 }
-void SpectrogramWidget::handleDone(QVector<Prediction> preds)
+void SpectrogramWidget::handleDone(QVector<Prediction> predictions)
 {
-    m_lastPredictions.clear();
-    for (int k = 0; k < 5; k++)
-        m_lastPredictions.push_back(preds[k]);
+    std::lock_guard<std::mutex> lock(m_predictionMutex);
+    predictionQueue.push(predictions);
 
-    m_currentBirdName = QString(preds[0].label);
-    m_currentConfidence = preds[0].score;
-
-    qDebug() << m_currentBirdName << m_currentConfidence;
+    // qDebug() << m_currentBirdName << m_currentConfidence;
 }
 
 void SpectrogramWidget::startSimulation()
@@ -158,6 +160,22 @@ int SpectrogramWidget::logarithmicFreq(int y)
 
 void SpectrogramWidget::updateSpectrogram()
 {
+    {
+        std::lock_guard<std::mutex> lock(m_predictionMutex);
+        // Lock when we read preductionQueue. It's not atomic
+        if (!predictionQueue.empty())
+        {
+            QVector<Prediction> preds = predictionQueue.front();
+            predictionQueue.pop();
+
+            m_lastPredictions.clear();
+            for (int k = 0; k < preds.size(); k++)
+                m_lastPredictions.push_back(preds[k]);
+
+            m_currentBirdName = QString(preds[0].label);
+            m_currentConfidence = preds[0].score;
+        }
+    }
 
     if (m_pcmData.isEmpty())
     {
@@ -251,7 +269,11 @@ bool SpectrogramWidget::loadAudioData(const QString &filename)
     float *buf = (float *)malloc(sizeof(float) * info.frames * info.channels);
     sf_readf_float(snd, buf, info.frames);
     sf_close(snd);
-
+    if (info.samplerate != 48000)
+    {
+        qDebug() << "Audio must be 48k. This file is " << info.samplerate;
+        return NULL;
+    }
     float peak = 0.0f;
     for (int i = 0; i < info.frames; i++)
     {
@@ -293,5 +315,10 @@ void SpectrogramWidget::reset()
     for (int i = 0; i < 5; i++)
         m_lastPredictions.push_back(Prediction{"Waiting...", 0.0f});
 
+    std::lock_guard<std::mutex> lock(m_predictionMutex);
+    while (!predictionQueue.empty()) {
+        //Clear the queue
+        predictionQueue.pop();
+    }
     update();
 }

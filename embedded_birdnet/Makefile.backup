@@ -23,22 +23,29 @@ CFLAGS_ARM = \
     -I$(SYSROOT)/usr/include/qt5/QtGui \
     -I$(SYSROOT)/usr/include/qt5/QtWidgets
 
+
 LDFLAGS_ARM = \
     --sysroot=$(SYSROOT) \
     -pg \
     -Llib_arm \
+    -Llib_arm/tf_deps \
     -Wl,-rpath,$$ORIGIN/lib_arm \
+    -Wl,-rpath,$$ORIGIN/lib_arm/tf_deps \
     -Wl,-rpath-link,lib_arm \
+    -Wl,-rpath-link,lib_arm/tf_deps \
     -lQt5Core \
     -lQt5Gui \
     -lQt5Widgets \
     -ltensorflowlite_c \
+    -ltensorflow-lite \
     -lsndfile \
     -lsamplerate \
     -lpthread \
     -ldl \
     -lm \
     -lstdc++
+
+
 
 engine_x86.o: bird_identification_engine.cpp bird_identification_engine.h
 	$(CC_X86) -c $(CFLAGS_X86) bird_identification_engine.cpp -o engine_x86.o
@@ -75,10 +82,12 @@ main_arm.o: main.cpp SpectrogramWidget.h
 	$(CC_ARM) $(CFLAGS_ARM) -c main.cpp -o main_arm.o
 
 bird_identifier_x86: main_x86.o SpectrogramWidget_x86.o SpectrogramWidget.moc_x86.o engine_x86.o worker_x86.o worker_x86.moc.o
-	$(CC_X86) -pg main_x86.o SpectrogramWidget_x86.o SpectrogramWidget.moc_x86.o engine_x86.o worker_x86.o worker_x86.moc.o -o bird_identifier_x86 $(QT5_LIBS) $(LDFLAGS_X86)
+	$(CC_X86) -pg main_x86.o SpectrogramWidget_x86.o SpectrogramWidget.moc_x86.o engine_x86.o worker_x86.o worker_x86.moc.o\
+	    -o bird_identifier_x86 $(QT5_LIBS) $(LDFLAGS_X86)
 
 bird_identifier_arm: main_arm.o SpectrogramWidget_arm.o SpectrogramWidget.moc_arm.o engine_arm.o worker_arm.o worker_arm.moc.o 
-	$(CC_ARM) -g -pg main_arm.o SpectrogramWidget_arm.o SpectrogramWidget.moc_arm.o engine_arm.o worker_arm.o worker_arm.moc.o -o bird_identifier_arm $(LDFLAGS_ARM)
+	$(CC_ARM) -g -pg main_arm.o SpectrogramWidget_arm.o SpectrogramWidget.moc_arm.o engine_arm.o worker_arm.o worker_arm.moc.o\
+	    -o bird_identifier_arm $(LDFLAGS_ARM)
 
 clean:
 	rm -f bird_identifier_x86 bird_identifier_arm *.o *.moc.cpp

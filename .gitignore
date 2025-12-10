@@ -101,4 +101,7 @@ tinybird/audio_clips
 BirdNET-Tiny-Forge
 tinybird/mels
 bird_inference_arm
-*.h5
+tinybird
+flatbuffers
+tf_build_neon_c
+tf_build_arm
