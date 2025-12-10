@@ -100,3 +100,6 @@ profile.txt
 
 bird_inference_arm
 tinybird
+flatbuffers
+tf_build_neon_c
+tf_build_arm

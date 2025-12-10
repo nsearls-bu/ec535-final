@@ -315,5 +315,10 @@ void SpectrogramWidget::reset()
     for (int i = 0; i < 5; i++)
         m_lastPredictions.push_back(Prediction{"Waiting...", 0.0f});
 
+    std::lock_guard<std::mutex> lock(m_predictionMutex);
+    while (!predictionQueue.empty()) {
+        //Clear the queue
+        predictionQueue.pop();
+    }
     update();
 }
