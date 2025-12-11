@@ -109,3 +109,8 @@ tf_build_arm
 *.mp3
 *.moc.*
 *.py
+embedded_birdnet/bird_identifier*
+embedded_birdnet/*_Labels.txt
+embedded_birdnet/Makefile.backup
+lib_arm_backup
+embedded_birdnet/lib_arm
