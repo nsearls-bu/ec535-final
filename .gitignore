@@ -94,9 +94,6 @@ LiteRT
 bird_inference_x86
 profile.txt
 !lib_arm
-!bird_testing/lib_arm/*.so
-!bird_testing/lib_arm/*.a
-!bird_testing/lib_arm/tf_deps/*.so
 tinybird/audio_clips
 BirdNET-Tiny-Forge
 tinybird/mels
@@ -114,3 +111,5 @@ embedded_birdnet/*_Labels.txt
 embedded_birdnet/Makefile.backup
 lib_arm_backup
 embedded_birdnet/lib_arm
+V1.4
+*.so
